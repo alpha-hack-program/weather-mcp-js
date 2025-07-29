@@ -125,6 +125,10 @@ jobs:
           
           # Make script executable
           chmod +x image.sh
+
+          # Copy .env.sample to .env
+          cp .env.sample .env
+          echo "🐳 Using .env.sample as .env for build test"
           
           # Run the build
           ./image.sh build
