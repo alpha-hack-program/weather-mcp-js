@@ -1,4 +1,4 @@
-.PHONY: all clean build-mcp build-http pack-mcp pack-http test-http
+.PHONY: all install install-prod build build-prod pack test clean proxy sgw-sse sgw-mcp help
 
 all: install build pack
 
@@ -6,42 +6,65 @@ all: install build pack
 install:
 	npm ci
 
-# Install only production dependencies (for runtime/packaging)
+# Install only production dependencies (for runtime)
 install-prod:
 	npm ci --omit=dev
 
-# Build Weather MCP server
+# Build MCP server (including dev dependencies)
 build: install
 	npm run build
 
+# Build MCP server (production dependencies only)
+build-prod: install
+	npm run build-prod
+
+# Run dev server for local development with production dependencies
+run: install
+	npm start
+
 # Pack MCP server for Claude Desktop (production dependencies only)
-pack: build install-prod
+_pack: build-prod install-prod
 	@echo "Packing MCP server for Claude Desktop..."
 	zip -r weather-mcp-js-server.dxt manifest.json icon.png package.json node_modules/ build/
+pack: _pack install
+	@echo "Packaged weather-mcp-js-server.dxt successfully."
 
-# Test
-test: build
-	npx @modelcontextprotocol/inspector node build/index.js
-		
+# Simple test for MCP server
+test-stdio:
+	npm run test-stdio
+
+# Test stdio from the inspector with stdio
+test-inspector:
+	npm run test-inspector
+
+# Run inspector for debugging
+inspector:
+	npx @modelcontextprotocol/inspector
+
+# Clean 		
 clean:
 	rm -f *.dxt *.zip
 	rm -rf node_modules build
 
+# Proxy for debugging with mitmproxy
 proxy:
 	mitmweb -p 8888 --mode reverse:http://localhost:8000 --web-port 8081
 
+# SSE server for testing locally
 sgw-sse:
 	npx -y supergateway \
     --stdio "node build/index.js" \
     --port 8000 --baseUrl http://localhost:8000 \
     --ssePath /sse --messagePath /message
 
+# MCP server for testing locally
 sgw-mcp:
 	npx -y supergateway \
 	--stdio "node build/index.js" \
     --outputTransport streamableHttp \
     --port 8000
 
+# Help message
 help:
 	@echo "Usage:"
 	@echo "  make all           - Build All"

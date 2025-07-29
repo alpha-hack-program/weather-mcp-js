@@ -232,7 +232,7 @@ process.on('unhandledRejection', (reason, promise) => {
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("Weather MCP Server running on stdio");
+  console.error("Weather MCP Server running on stdio transport");
 }
 
 main().catch((error) => {
