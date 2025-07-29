@@ -130,15 +130,66 @@ jobs:
           cp .env.sample .env
           echo "🐳 Using .env.sample as .env for build test"
           
+          # Check what container runtime is available (podman takes precedence)
+          echo "🔍 Checking available container runtimes..."
+          CONTAINER_RUNTIME=""
+          if command -v podman &> /dev/null; then
+            echo "✅ Podman available: $(podman --version)"
+            CONTAINER_RUNTIME="podman"
+          elif command -v docker &> /dev/null; then
+            echo "✅ Docker available: $(docker --version)"
+            CONTAINER_RUNTIME="docker"
+          else
+            echo "❌ Neither Podman nor Docker found"
+            exit 1
+          fi
+          echo "🎯 Will use: $CONTAINER_RUNTIME"
+          
           # Run the build
           ./image.sh build
           
-          # Verify image was created
-          if ! docker images --format "table {{.Repository}}:{{.Tag}}" | grep -q "weather-mcp"; then
-            echo "❌ Container image not found"
-            # If not found, show formatted output
-            echo "Available images:"
-            docker images --format "table {{.Repository}}:{{.Tag}}\t{{.ID}}\t{{.CreatedAt}}"
+          # Check images with the detected runtime first, then fallback to the other
+          echo "🔍 Checking for created images..."
+          
+          FOUND=false
+          
+          # Check with primary runtime
+          echo "Checking with $CONTAINER_RUNTIME:"
+          $CONTAINER_RUNTIME images || echo "$CONTAINER_RUNTIME images command failed"
+          
+          if $CONTAINER_RUNTIME images --format "table {{.Repository}}:{{.Tag}}" 2>/dev/null | grep -q "weather-mcp"; then
+            echo "✅ Found image with $CONTAINER_RUNTIME"
+            FOUND=true
+          fi
+          
+          # If not found and using podman, also check docker
+          if [ "$FOUND" = false ] && [ "$CONTAINER_RUNTIME" = "podman" ] && command -v docker &> /dev/null; then
+            echo "Checking with Docker as fallback:"
+            docker images || echo "Docker images command failed"
+            
+            if docker images --format "table {{.Repository}}:{{.Tag}}" 2>/dev/null | grep -q "weather-mcp"; then
+              echo "✅ Found image with Docker"
+              FOUND=true
+            fi
+          fi
+          
+          # If not found and using docker, also check podman
+          if [ "$FOUND" = false ] && [ "$CONTAINER_RUNTIME" = "docker" ] && command -v podman &> /dev/null; then
+            echo "Checking with Podman as fallback:"
+            podman images || echo "Podman images command failed"
+            
+            if podman images --format "table {{.Repository}}:{{.Tag}}" 2>/dev/null | grep -q "weather-mcp"; then
+              echo "✅ Found image with Podman"
+              FOUND=true
+            fi
+          fi
+          
+          if [ "$FOUND" = false ]; then
+            echo "❌ Container image not found with any runtime"
+            echo "Podman images:"
+            podman images --format "table {{.Repository}}:{{.Tag}}\t{{.ID}}\t{{.CreatedAt}}" 2>/dev/null || echo "Podman not available"
+            echo "Docker images:"
+            docker images --format "table {{.Repository}}:{{.Tag}}\t{{.ID}}\t{{.CreatedAt}}" 2>/dev/null || echo "Docker not available"
             exit 1
           fi
           
@@ -150,6 +201,6 @@ jobs:
         with:
           name: build-artifacts
           path: |
-            weather-mcp.dxt
+            *.dxt
             build/
           retention-days: 7
