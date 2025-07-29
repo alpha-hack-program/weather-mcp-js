@@ -51,11 +51,15 @@ jobs:
           echo "📦 Testing make pack..."
           make pack
           
-          # Check that DXT file was created
-          if [ ! -f weather-mcp.dxt ]; then
-            echo "❌ weather-mcp.dxt not found"
+          # Check that a DXT file was created (find any .dxt file)
+          DXT_FILE=$(ls *.dxt 2>/dev/null | head -1)
+          if [ -z "$DXT_FILE" ]; then
+            echo "❌ No .dxt file found"
+            echo "Files in directory:"
+            ls -la
             exit 1
           fi
+          echo "✅ Found DXT file: $DXT_FILE"
           
           # Install unzip if not available (should be available in ubuntu-latest)
           if ! command -v unzip &> /dev/null; then
@@ -66,7 +70,7 @@ jobs:
           # Extract the package using unzip
           echo "📂 Extracting package with unzip..."
           mkdir -p test-extract
-          unzip -q weather-mcp.dxt -d test-extract
+          unzip -q "$DXT_FILE" -d test-extract
           
           # Show extracted contents for debugging
           echo "📁 Extracted contents:"
