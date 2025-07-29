@@ -1,0 +1,145 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  test:
+    name: Test Weather MCP Server
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm install
+        
+      - name: Test make build
+        run: |
+          echo "🏗️ Testing make build..."
+          make build
+          
+          # Verify build output exists
+          if [ ! -f build/index.js ]; then
+            echo "❌ build/index.js not found"
+            exit 1
+          fi
+          echo "✅ make build successful"
+          
+      - name: Test make test-stdio
+        run: |
+          echo "🔌 Testing make test-stdio..."
+          make test-stdio
+          echo "✅ make test-stdio successful"
+          
+      - name: Test make pack and verify contents
+        run: |
+          echo "📦 Testing make pack..."
+          make pack
+          
+          # Check that DXT file was created
+          if [ ! -f weather-mcp.dxt ]; then
+            echo "❌ weather-mcp.dxt not found"
+            exit 1
+          fi
+          
+          # Install unzip if not available (should be available in ubuntu-latest)
+          if ! command -v unzip &> /dev/null; then
+            echo "Installing unzip..."
+            sudo apt-get update && sudo apt-get install -y unzip
+          fi
+          
+          # Extract the package using unzip
+          echo "📂 Extracting package with unzip..."
+          mkdir -p test-extract
+          unzip -q weather-mcp.dxt -d test-extract
+          
+          # Show extracted contents for debugging
+          echo "📁 Extracted contents:"
+          find test-extract -type f | head -20
+          
+          # Verify required files exist
+          echo "🔍 Verifying package contents..."
+          
+          if [ ! -d test-extract/build ]; then
+            echo "❌ build/ directory missing"
+            ls -la test-extract/
+            exit 1
+          fi
+          echo "✅ build/ directory found"
+          
+          if [ ! -d test-extract/node_modules ]; then
+            echo "❌ node_modules/ directory missing"
+            ls -la test-extract/
+            exit 1
+          fi
+          echo "✅ node_modules/ directory found"
+          
+          if [ ! -f test-extract/package.json ]; then
+            echo "❌ package.json missing"
+            ls -la test-extract/
+            exit 1
+          fi
+          echo "✅ package.json found"
+          
+          if [ ! -f test-extract/package-lock.json ]; then
+            echo "❌ package-lock.json missing"
+            ls -la test-extract/
+            exit 1
+          fi
+          echo "✅ package-lock.json found"
+          
+          if [ ! -f test-extract/manifest.json ]; then
+            echo "❌ manifest.json missing"
+            ls -la test-extract/
+            exit 1
+          fi
+          echo "✅ manifest.json found"
+          
+          echo "✅ make pack successful - all required files present"
+          
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Test image.sh build
+        run: |
+          echo "🐳 Testing image.sh build..."
+          
+          # Make script executable
+          chmod +x image.sh
+          
+          # Run the build
+          ./image.sh build
+          
+          # Verify image was created
+          if ! docker images | grep -q "quay.io/atarazana/weather-mcp"; then
+            echo "❌ Container image not found"
+            docker images
+            exit 1
+          fi
+          
+          echo "✅ image.sh build successful"
+          
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: |
+            weather-mcp.dxt
+            build/
+          retention-days: 7
