@@ -25,7 +25,7 @@ run: install
 # Pack MCP server for Claude Desktop (production dependencies only)
 _pack: build-prod install-prod
 	@echo "Packing MCP server for Claude Desktop..."
-	zip -r weather-mcp-js-server.dxt manifest.json icon.png package.json node_modules/ build/
+	zip -r weather-mcp-js-server.dxt manifest.json icon.png package*.json node_modules/ build/
 pack: _pack install
 	@echo "Packaged weather-mcp-js-server.dxt successfully."
 

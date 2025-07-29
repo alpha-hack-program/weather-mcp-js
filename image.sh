@@ -12,6 +12,7 @@ if [[ -f "${SCRIPT_DIR}/.env" ]]; then
     source "${SCRIPT_DIR}/.env"
 else
     echo "❌ .env file not found!"
+    echo "💡 You can create a .env file with the required variables taking .env.sample as a starting point."
     exit 1
 fi
 
