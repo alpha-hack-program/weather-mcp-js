@@ -134,9 +134,11 @@ jobs:
           ./image.sh build
           
           # Verify image was created
-          if ! docker images | grep -q "quay.io/atarazana/weather-mcp"; then
+          if ! docker images --format "table {{.Repository}}:{{.Tag}}" | grep -q "weather-mcp"; then
             echo "❌ Container image not found"
-            docker images
+            # If not found, show formatted output
+            echo "Available images:"
+            docker images --format "table {{.Repository}}:{{.Tag}}\t{{.ID}}\t{{.CreatedAt}}"
             exit 1
           fi
           
